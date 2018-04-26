@@ -31,8 +31,7 @@
         <q-item
           v-for="(sItem, i) of suggestionItems"
           :key="sItem.id"
-          @hover.native="handleH"
-          v-stream:hover="{ subject: sItemHover$, data: { index: i} }"
+          v-stream:mouseover.native="{ subject: sItemMouseover$, data: { index: i} }"
       
           :class="{ 'selected': i === selectIndex - 1, 'aaaa': true }"
         >
@@ -61,7 +60,7 @@
         <q-tab-pane name="songs">Tab One</q-tab-pane>
         <q-tab-pane name="album">Tab Two</q-tab-pane>
         </q-tabs>
-        <span>{{ selectIndex }}</span>
+        <span>{{ a }}</span>
     </div>
   </q-page>
 </template>
@@ -84,10 +83,9 @@ export default {
       searchSuggestTxt: ''
     }
   },
-  domStreams: ['keyup$', 'focus$', 'blur$', 'sItemHover$'],
+  domStreams: ['keyup$', 'focus$', 'blur$', 'sItemMouseover$'],
   subscriptions() {
-    this.sItemHover$.pluck('data', 'index')
-      .do(console.log)
+    this.a = this.sItemMouseover$.pluck('data', 'index').do(console.log)
     const triggerUpAndDownOnInput$ = Rx.Observable.merge(
       Rx.Observable.of(1),
       this.keyup$.pluck('event', 'msg', 'keyCode')
@@ -162,7 +160,7 @@ export default {
   },
   methods: {
     handleH() {
-      console.log(1);
+      console.log(1)
     },
     async handleSearch(terms) {
       console.log(terms)
