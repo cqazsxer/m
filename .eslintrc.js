@@ -42,6 +42,8 @@ module.exports = {
     'arrow-parens': 0,
     'function-paren-newline': 0,
     'no-trailing-spaces': 0,
+    'object-curly-newline': 0,
+    'no-underscore-dangle': 0,
     // allow debugger during development
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0
   }
