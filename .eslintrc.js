@@ -46,6 +46,9 @@ module.exports = {
     'no-trailing-spaces': 0,
     'object-curly-newline': 0,
     'no-underscore-dangle': 0,
+    'linebreak-style': 0,
+    'prefer-template': 0,
+    'max-len': 0,
     // allow debugger during development
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0
   }
