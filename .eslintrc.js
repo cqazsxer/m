@@ -11,25 +11,26 @@ module.exports = {
   // consider switching to `plugin:vue/strongly-recommended` or `plugin:vue/recommended` for stricter rules.
   extends: ['plugin:vue/essential', 'airbnb-base'],
   // required to lint *.vue files
-  plugins: [
-    'vue'
-  ],
+  plugins: ['vue'],
   globals: {
-    'ga': true, // Google Analytics
-    'cordova': true,
-    '__statics': true
+    ga: true, // Google Analytics
+    cordova: true,
+    __statics: true
   },
   // add your custom rules here
-  'rules': {
+  rules: {
     'no-param-reassign': 0,
-    'semi': 0,
-    "comma-dangle": ["error", {
-      "arrays": "never",
-      "objects": "never",
-      "imports": "never",
-      "exports": "never",
-      "functions": "ignore",
-    }],
+    semi: 0,
+    'comma-dangle': [
+      'error',
+      {
+        arrays: 'never',
+        objects: 'never',
+        imports: 'never',
+        exports: 'never',
+        functions: 'ignore'
+      }
+    ],
     'import/first': 0,
     'import/named': 2,
     'import/namespace': 2,
@@ -41,6 +42,7 @@ module.exports = {
     'no-console': 0,
     'arrow-parens': 0,
     'function-paren-newline': 0,
+    'no-unused-vars': 0,
     'no-trailing-spaces': 0,
     'object-curly-newline': 0,
     'no-underscore-dangle': 0,

@@ -69,7 +69,9 @@ module.exports = function (ctx) {
         'QSearch',
         'QTabs',
         'QTab',
-        'QTabPane'
+        'QTabPane',
+        'QInnerLoading',
+        'QSpinnerPuff'
 
       ],
       directives: [
