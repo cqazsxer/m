@@ -72,7 +72,9 @@ module.exports = function (ctx) {
         'QTabPane',
         'QInnerLoading',
         'QSpinnerPuff',
-        'QScrollArea'
+        'QScrollArea',
+        'QInfiniteScroll',
+        'QSpinnerDots'
 
       ],
       directives: [
