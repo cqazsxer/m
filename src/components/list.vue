@@ -1,4 +1,6 @@
 <style lang="stylus" scoped>
+@import '~variables';
+
 .suggestions {
   position: absolute;
   top: 55px;
@@ -16,10 +18,7 @@
 .songs {
   .song {
     line-height: 20px;
-
-    & + .song {
-      border-top: 1px solid black;
-    }
+    border-bottom: 1px solid $light;
 
     .left {
       width: calc(100% - 56px);
@@ -40,8 +39,47 @@
   }
 }
 
+.albums {
+  flex: auto;
+
+  .album {
+    height: 60px;
+    margin-bottom: 4px;
+
+    .right {
+      flex: 1 1 auto;
+      border-bottom: 1px solid $light;
+      margin-left: 10px;
+
+      .album_name {
+        margin-bottom: 3px;
+        font-size: 17px;
+        max-width: calc(100vw - 76px);
+      }
+
+      .other_info {
+        font-size: 13px;
+        color: $grey-14;
+
+        .artist_name {
+          margin-right: 5px;
+        }
+      }
+    }
+
+    .pic {
+      display: inline-block;
+    }
+
+    .pic img {
+      width: 60px;
+      height: 60px;
+    }
+  }
+}
+
 .q-infinite-scroll, .q-scroll-area, .my_scroll_area {
-  height: calc(100vh - 320px);
+  height: calc(100vh - 200px);
   overflow: auto;
   position: relative;
 }
@@ -49,8 +87,12 @@
 .infinityContainer {
   width: 100vw;
   height: 100px;
-  border: 1px solid red;
   position: relative;
+}
+
+.noMoreItems {
+  width: 100vw;
+  height: 60px;
 }
 </style>
 
@@ -60,23 +102,33 @@
     <div class="column col-12 q-pa-md">
       <q-search autofocus :debounce="0" type="text"
         ref="searchSuggestInput" name="searchSuggest"
-        v-model="searchSuggestTxt" v-stream:keyup="inputKeyup$"
+        v-model="searchSuggestInputTxt" v-stream:keyup="inputKeyup$"
         v-stream:focus="focus$" v-stream:blur="blur$"
         v-stream:click="inputClick$"></q-search>
-      <template v-if="showSuggestions$ && searchSuggestTxt !== ''">
+      <template v-if="showSuggestions$ && searchSuggestInputTxt !== ''">
         <transition appear enter-active-class="animated fadeIn"
           leave-active-class="animated fadeOut">
           <q-list highlight style="padding: 0" class="shadow-1 suggestions relative-position">
-
-            <template v-if="suggestionItems$.length > 0">
+            <template v-if="suggestionItems$ && suggestionItems$.length > 0">
               <q-item v-for="(sItem, i) of suggestionItems$"
                 :key="sItem.id" :class="[{ 'selected': i === selectIndex$ - 1}, 'cursor-pointer']"
                 v-stream:mouseover.native="{ subject: sItemMouseover$, data: { index: i} }"
                 v-stream:click.native.stop="{ subject: sItemClick$, data: { label: sItem.label } }">
-                <q-item-main :label="sItem.label"></q-item-main>
+                <template v-if="sItem.type === 'artist'">
+                  <q-item-side>
+                    <q-item-tile avatar>
+                      <img :src="sItem.img1v1Url">
+                    </q-item-tile>
+                  </q-item-side>
+                  <q-item-main v-if="sItem.type === 'artist'"
+                    :label="sItem.label"></q-item-main>
+                </template>
+                <template v-else>
+                  <q-item-main :label="sItem.label"></q-item-main>
+                </template>
               </q-item>
             </template>
-            <span class="q-pa-md" v-if="suggestionItems$.length === 0 && !suggestionItemsloading">
+            <span class="q-pa-md" v-if="suggestionItems$ && suggestionItems$.length === 0 && !suggestionItemsloading">
               无搜索结果
             </span>
             <q-inner-loading :visible="suggestionItemsloading">
@@ -86,21 +138,16 @@
         </transition>
       </template>
     </div>
-
     <div class="row col-12">
-      <q-tabs align="center" class="full-width">
-        <q-tab default slot="title" name="songs"
-          icon="library music" />
+      <q-tabs align="center" class="full-width"
+        v-model="selectedTab" no-pane-border>
+        <q-tab default slot="title" name="song" icon="library music"
+        />
         <q-tab slot="title" name="album" icon="album"
         />
-        <q-tab-pane name="songs" class="q-pa-none songs">
-          <template>
-            <!-- <q-infinite-scroll :handler="loadMoreSongs"
-              inline> -->
-            <div class="my_scroll_area" v-stream:scroll.native="songsScroll$">
-
-
-              <!-- <q-infinite-scroll v-stream:scroll.native="songsScroll$":handler="loadMore"> -->
+        <q-tab-pane name="song" keep-alive class="q-pa-none songs">
+          <div class="my_scroll_area songs_area" v-stream:scroll.native="songsScroll$">
+            <div class="my_scroll_area_body songs_body">
               <ul class="column songs">
                 <li v-for="(song, index) of songItems$" :key="index"
                   class="row song">
@@ -119,16 +166,59 @@
                   </div>
                 </li>
               </ul>
-              <div class="infinityContainer">
+              <div class="infinityContainer" v-if="!noMoreSongItems$">
                 <q-inner-loading :visible="songsInfinityScrollLoading">
                   <q-spinner-dots size="50px" color="primary"></q-spinner-dots>
                 </q-inner-loading>
               </div>
+              <div class="noMoreItems flex items-center justify-center"
+                v-if="noMoreSongItems$">
+                <transition appear enter-active-class="animated fadeIn"
+                  leave-active-class="animated fadeOut">
+                  <span>到底啦</span>
+                </transition>
+              </div>
             </div>
-            <!-- </q-infinite-scroll> -->
-          </template>
+          </div>
         </q-tab-pane>
-        <q-tab-pane name="album">Tab Two</q-tab-pane>
+        <q-tab-pane name="album" keep-alive class="q-pa-none albums">
+          <div class="my_scroll_area albums_area" v-stream:scroll.native="albumsScroll$">
+            <div class="my_scroll_area_body albums_body">
+              <ul class="column albums">
+                <li v-for="(album, index) of albumItems$"
+                  :key="index" class="row album no-wrap">
+                  <div class="left">
+                    <span class="pic"><img :src="album.picUrl"
+                        alt=""></span>
+                  </div>
+                  <div class="right column justify-center">
+                    <span class="album_name ellipsis">{{ album.name}}</span>
+                    <div class="row other_info ellipsis">
+                      <span class="artist_name">{{ album.artist.name
+                        }}
+                      </span>
+                      <span class="artist_name">{{ date.formatDate(album.publishTime,
+                        'YYYY-MM-DD') }}</span>
+                    </div>
+
+                  </div>
+                </li>
+              </ul>
+              <div class="infinityContainer" v-if="!noMoreAlbumItems$">
+                <q-inner-loading :visible="albumsInfinityScrollLoading">
+                  <q-spinner-dots size="50px" color="primary"></q-spinner-dots>
+                </q-inner-loading>
+              </div>
+              <div class="noMoreItems flex items-center justify-center"
+                v-if="noMoreAlbumItems$">
+                <transition appear enter-active-class="animated fadeIn"
+                  leave-active-class="animated fadeOut">
+                  <span>到底啦</span>
+                </transition>
+              </div>
+            </div>
+          </div>
+        </q-tab-pane>
       </q-tabs>
     </div>
   </q-page>
@@ -141,16 +231,25 @@
 <script>
 import * as R from 'ramda'
 import Rx from 'rxjs/Rx'
+import { date } from 'quasar'
 
-const MAX_SUGGESTION_COUNT = 6
-const PER_PAGE = 30;
+const MAX_SONG_SUGGESTION_COUNT = 6
+const MAX_ARTIST_SUGGESTION_COUNT = 2
+const MAX_SUGGESTION_COUNT =
+  MAX_SONG_SUGGESTION_COUNT + MAX_ARTIST_SUGGESTION_COUNT
+const SONGS_PER_PAGE = 30
+const ALBUMS_PER_PAGE = 8
+const TriggerHieght = 200 // 触发下一页的高度
 export default {
   name: 'PageIndex',
   data() {
     return {
-      searchSuggestTxt: '',
+      searchSuggestInputTxt: '',
       suggestionItemsloading: false,
-      songsInfinityScrollLoading: false
+      songsInfinityScrollLoading: false,
+      albumsInfinityScrollLoading: false,
+      selectedTab: 'songs',
+      date
     }
   },
   domStreams: [
@@ -160,42 +259,30 @@ export default {
     'sItemMouseover$',
     'sItemClick$',
     'inputClick$',
-    'songsScroll$'
+    'songsScroll$',
+    'albumsScroll$'
   ],
   subscriptions() {
     // 下拉的建议项$
     const suggestionItems$ = Rx.Observable.merge(
       Rx.Observable.of([]),
-      this.$watchAsObservable('searchSuggestTxt')
-        .filter(R.complement(R.equals('')))
+      this.$watchAsObservable('searchSuggestInputTxt')
         .do(() => {
           this.suggestionItemsloading = true
         })
         .debounceTime(400)
         .pluck('newValue')
+        .filter(R.complement(R.equals('')))
         .distinctUntilChanged()
         .switchMap(txt =>
-          Rx.Observable.fromPromise(
-            this.$musicAPI.get(`/search?keywords=${txt}`)
-          )
-        )
-        .pluck('data', 'result', 'songs')
-        .map(
-          R.ifElse(
-            R.isNil,
-            R.always([]),
-            R.compose(
-              R.take(MAX_SUGGESTION_COUNT),
-              R.map(({ name, artists, id, ...others }) => ({
-                label: `${name} ${R.compose(R.join(','), R.pluck('name'))(
-                  artists
-                )}`,
-                id,
-                others
-              }))
+          Rx.Observable.zip(
+            this.$musicAPI.get(`/search/suggest?keywords=${txt}&type=10`),
+            Rx.Observable.fromPromise(
+              this.$musicAPI.get(`/search?keywords=${txt}`)
             )
           )
         )
+        .map(this.handleSuggestionsData)
         .do(() => {
           this.suggestionItemsloading = false
         })
@@ -234,7 +321,6 @@ export default {
     )
       .scan((acc, { value, type }) => {
         const newAcc = R.defaultTo(acc + value)(acc.value)
-
         return R.cond([
           [R.equals('set'), R.always(value)],
           [
@@ -270,11 +356,14 @@ export default {
       suggestionItems$
     )
       .map(([value, arr]) => (arr.length > 0 ? arr[value - 1].label : ''))
+      .do(e => {
+        console.log('当前建议文本', e)
+      })
       .publishBehavior()
       .refCount()
-
-    // 搜索产生的songs$(仅一页)
-    const songItemsAfterSearch$ = new Rx.Subject()
+    // .subscribe()
+    // 输入框回车、单击选中的文本流
+    const txtAfterSearch$ = new Rx.Subject()
       .merge(
         this.sItemClick$.pluck('data', 'label'),
         this.inputKeyup$
@@ -282,52 +371,49 @@ export default {
           .switchMap(() => selectedSuggestTxt$.take(1))
       )
       .do(txt => {
-        console.log('txt', txt)
-        this.searchSuggestTxt = txt
+        this.searchSuggestInputTxt = txt
       })
+      .takeWhile(R.compose(R.complement, R.isNil))
+      .share()
+    // 搜索产生的songs$(仅一页)
+    const songItemsAfterSearch$ = txtAfterSearch$
       .switchMap(txt =>
         Rx.Observable.fromPromise(
-          this.$musicAPI.get(`/search?keywords=${txt}&type=1&offset=0&limit=${PER_PAGE}`)
+          this.$musicAPI.get(
+            `/search?keywords=${txt}&type=1&offset=0&limit=${SONGS_PER_PAGE}`
+          )
         )
       )
       .pluck('data', 'result', 'songs')
       .map(R.defaultTo([]))
-      .do(e => {
-        console.log('最新的', e)
-      })
       .share()
 
-    // 下滑产生的songs 分页添加
-    const songsItemsByScroll$ = this.songsScroll$
-      .debounceTime(50)
-      .map(({ event: { target } }) => {
-        const contentHeight =
-          target.querySelector('ul').offsetHeight +
-          target.querySelector('.infinityContainer').offsetHeight
-        const containerHeight = target.offsetHeight
-        console.log(
-          Math.abs(contentHeight - containerHeight - target.scrollTop)
+    // 下滑产生的分页songs流
+    const songsItemsByScroll$ = Rx.Observable.combineLatest(
+      this.songsScroll$
+        .debounceTime(50)
+        .filter(
+          ({ event: { target } }) =>
+            Math.abs(
+              target.querySelector('.my_scroll_area_body.songs_body')
+                .offsetHeight -
+                target.offsetHeight -
+                target.scrollTop
+            ) <= TriggerHieght
         )
-        // 触发滚动距离
-        return (
-          Math.abs(contentHeight - containerHeight - target.scrollTop) <= 100
-        )
-      })
-      .filter(R.identity)
-      .mapTo(1)
-      .scan((acc, value) => acc + value, 1)
-      .do(e => {
-        console.log('more page1', e)
-      })
-      .do(() => {
+        .mapTo(1)
+        .scan((acc, value) => acc + value, 1),
+      selectedSuggestTxt$
+    )
+      .do(([page, txt]) => {
         this.songsInfinityScrollLoading = true
+        console.log('[page, txt]', page, txt)
       })
-      .switchMap(page =>
+      .switchMap(([page, txt]) =>
         Rx.Observable.fromPromise(
           this.$musicAPI.get(
-            `/search?keywords=${this.searchSuggestTxt}&type=1&offset=${(page -
-              1) *
-              PER_PAGE}&limit=${PER_PAGE}`
+            `/search?keywords=${txt}&type=1&offset=${(page - 1) *
+              SONGS_PER_PAGE}&limit=${SONGS_PER_PAGE}`
           )
         )
       )
@@ -336,53 +422,153 @@ export default {
       })
       .pluck('data', 'result', 'songs')
       .map(R.defaultTo([]))
-      .do(e => {
-        console.log('more page2', e)
+      .takeWhile(R.compose(R.complement(R.equals(0)), R.length)) // 数组有长度才发送这个值
+      .share()
+    // 歌曲流
+    const songItems$ = songItemsAfterSearch$
+      .do(() => {
+        document.querySelector('.my_scroll_area.songs_area').scrollTop = 0
       })
-    // .share()
-    // .subscribe()
-    // songs项
-    const songItems$ = Rx.Observable.merge(
-      songItemsAfterSearch$.map(arr => ({
-        type: 'init',
-        arr
-      })).do(() => {
-        // 回到顶部
-        document.querySelector('.my_scroll_area').scrollTop = 0
-      }),
-      songsItemsByScroll$.map(arr => ({
-        type: 'append',
-        arr
-      }))
-    ).scan((acc, { type, arr }) => {
-      if (type === 'init') return arr
-      return acc.concat(arr)
-    }, [])
-    // const songItems$ = songsItemsByScroll$
-    //   .scan(R.concat, [])
-    //   .buffer(songItemsAfterSearch$)
+      .switchMap(initArr =>
+        songsItemsByScroll$.startWith(initArr).scan(R.concat, [])
+      )
+
+    const noMoreSongItems$ = Rx.Observable.merge(
+      songItemsAfterSearch$.mapTo(false),
+      songItemsAfterSearch$.switchMap(() =>
+        songsItemsByScroll$.map(R.compose(R.lt(R.__, SONGS_PER_PAGE), R.length))
+      )
+    ).do(e => {
+      console.log('noMoreSongItems$', e)
+    })
+    // 搜索产生的albums$(仅一页)
+    const albumItemsAfterSearch$ = txtAfterSearch$
+      .filter(() => this.selectedTab === 'album')
+      .delay(1)
+      .switchMap(txt =>
+        Rx.Observable.fromPromise(
+          this.$musicAPI.get(
+            `/search?keywords=${txt}&type=10&offset=0&limit=${ALBUMS_PER_PAGE}`
+          )
+        )
+      )
+      .pluck('data', 'result', 'albums')
+      .map(R.defaultTo([]))
+      .do(console.log)
+      .share()
+    // 下滑产生的专辑流
+    const albumItemsByScroll$ = Rx.Observable.combineLatest(
+      this.albumsScroll$
+        .debounceTime(50)
+        // .takeWhile(() => this.selectedTab === 'album')
+        .filter(
+          ({ event: { target } }) =>
+            Math.abs(
+              target.querySelector('.my_scroll_area_body.albums_body')
+                .offsetHeight -
+                target.offsetHeight -
+                target.scrollTop
+            ) <= TriggerHieght
+        )
+        .mapTo(1)
+        .scan((acc, value) => acc + value, 1),
+      selectedSuggestTxt$
+    )
+      .do(() => {
+        this.albumsInfinityScrollLoading = true
+      })
+      .switchMap(([page, txt]) =>
+        Rx.Observable.fromPromise(
+          this.$musicAPI.get(
+            `/search?keywords=${txt}&type=10&offset=${(page - 1) *
+              ALBUMS_PER_PAGE}&limit=${ALBUMS_PER_PAGE}`
+          )
+        )
+      )
+      .do(() => {
+        this.albumsInfinityScrollLoading = false
+      })
+      .pluck('data', 'result', 'albums')
+      .map(R.defaultTo([]))
+      .takeWhile(R.compose(R.complement(R.equals(0)), R.length)) // 数组有长度才发送这个值
+      .do(e => {
+        console.log('下滑产生的专辑', e)
+      })
+      .share()
+
+    // 专辑流
+    const albumItems$ = albumItemsAfterSearch$
+      .do(() => {
+        document.querySelector('.my_scroll_area.albums_area').scrollTop = 0
+      })
+      .switchMap(initArr =>
+        albumItemsByScroll$.startWith(initArr).scan(R.concat, [])
+      )
+      .do(e => {
+        console.log('当前albumItems$', e)
+      })
+
+    const noMoreAlbumItems$ = Rx.Observable.merge(
+      albumItemsAfterSearch$.mapTo(false),
+      albumItemsAfterSearch$.switchMap(() =>
+        albumItemsByScroll$.map(
+          R.compose(R.lt(R.__, ALBUMS_PER_PAGE), R.length)
+        )
+      )
+    ).do(e => {
+      console.log('noMoreSongItems$', e)
+    })
+    // 切换tab
+    this.$watchAsObservable('selectedTab')
+      .pluck('newValue')
+      .filter(R.complement(R.equals('song')))
+      .do(e => {
+        console.log("$watchAsObservable('selectedTab')", e)
+      })
+      .subscribe()
     return {
       suggestionItems$,
       showSuggestions$,
       selectIndex$,
       selectedSuggestTxt$,
-      songItems$
+      songItems$,
+      noMoreSongItems$,
+      albumItems$,
+      noMoreAlbumItems$
     }
   },
   created() {},
   methods: {
-    async loadMoreSongs(index, done) {
-      try {
-        const back = await this.$musicAPI.get(
-          `/search?keywords=${this.searchSuggestTxt}&type=1`
-        )
-
-        // this.
-      } catch (error) {
-        console.log(error)
-      }
-
-      console.log('index, done', index, done)
+    handleSuggestionsData([ArtistSuggestionsData, songsSuggestionsData]) {
+      const { songs } = songsSuggestionsData.data.result
+      const { artists } = ArtistSuggestionsData.data.result
+      const artistSuggestions = R.ifElse(
+        R.complement(R.isNil),
+        R.compose(
+          R.take(MAX_ARTIST_SUGGESTION_COUNT),
+          R.map(({ name, ...others }) => ({
+            label: `${name}`,
+            ...others,
+            type: 'artist'
+          }))
+        ),
+        R.always([])
+      )(artists)
+      const songSuggestions = R.ifElse(
+        R.complement(R.isNil),
+        R.compose(
+          R.take(MAX_SONG_SUGGESTION_COUNT),
+          R.map(({ name, artists: artists_, ...others }) => ({
+            label: `${R.compose(R.join(','), R.pluck('name'))(
+              artists_
+            )} ${name}`,
+            ...others,
+            type: 'song'
+          }))
+        ),
+        R.always([])
+      )(songs)
+      return R.concat(artistSuggestions, songSuggestions)
     }
   }
 }
