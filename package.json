@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "axios": "^0.18.0",
+    "howler": "^2.0.9",
     "ramda": "^0.25.0",
     "vue-rx": "^5.0.0"
   },
