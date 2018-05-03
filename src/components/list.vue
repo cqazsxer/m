@@ -21,7 +21,7 @@
     border-bottom: 1px solid $light;
 
     .left {
-      width: calc(100% - 56px);
+      width: calc(100% - 70px);
 
       .song_name {
         font-size: 16px;
@@ -35,6 +35,14 @@
 
     .right {
       padding: 10px 0;
+
+      .play {
+        font-size: 24px;
+      }
+
+      .q-btn {
+        padding: 4px 11px;
+      }
     }
   }
 }
@@ -161,7 +169,9 @@
                     </span>
                   </div>
                   <div class="right">
-                    <!-- <q-icon name="more vert" /> -->
+                    <q-icon @click.native="play(song, index)"
+                      :name="playingIndex === index ? 'pause circle outline' : 'play circle outline'"
+                      size="24px" />
                     <q-btn icon="more vert" flat></q-btn>
                   </div>
                 </li>
@@ -232,6 +242,7 @@
 import * as R from 'ramda'
 import Rx from 'rxjs/Rx'
 import { date } from 'quasar'
+import { Howl, Howler } from 'howler'
 
 const MAX_SONG_SUGGESTION_COUNT = 6
 const MAX_ARTIST_SUGGESTION_COUNT = 2
@@ -249,6 +260,7 @@ export default {
       songsInfinityScrollLoading: false,
       albumsInfinityScrollLoading: false,
       selectedTab: 'songs',
+      playingIndex: -1,
       date
     }
   },
@@ -569,6 +581,27 @@ export default {
         R.always([])
       )(songs)
       return R.concat(artistSuggestions, songSuggestions)
+    },
+    async play(song, index) {
+      const { data: { data: [{ url }] } } = await this.$musicAPI.get(
+        `/music/url?id=${song.id}`
+      )
+
+      if (this.playingIndex === index) {
+        // 还是点的这首歌
+        console.log(this.sound.playing())
+      } else {
+        // 换歌了
+        if (this.sound) {
+          this.sound.fade() // 停止上首歌
+        }
+        this.sound = new Howl({
+          src: [url],
+          html5: true
+          // xhrWithCredentials: true
+        })
+        this.sound.play()
+      }
     }
   }
 }
