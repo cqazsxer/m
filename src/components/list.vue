@@ -21,7 +21,8 @@
     border-bottom: 1px solid $light;
 
     .left {
-      width: calc(100% - 70px);
+      width: calc(100% - 48px);
+      padding-left: 15px;
 
       .song_name {
         font-size: 16px;
@@ -87,7 +88,7 @@
 }
 
 .q-infinite-scroll, .q-scroll-area, .my_scroll_area {
-  height: calc(100vh - 200px);
+  height: calc(100vh - 183px);
   overflow: auto;
   position: relative;
 }
@@ -158,21 +159,19 @@
             <div class="my_scroll_area_body songs_body">
               <ul class="column songs">
                 <li v-for="(song, index) of songItems$" :key="index"
-                  class="row song">
+                  :class="[{ 'selectedSong': true }, 'row', 'song']"
+                  @click.stop="play(song, index)">
                   <div class="column left justify-center q-pa-sm">
                     <span class="song_name ellipsis">{{ song.name }}</span>
                     <span class="artist_and_album ellipsis">
                       {{ song.artists.map(artist => artist.name).join(',')
-                      }} {{ song.artists[0].name
                       }}·{{ song.album.name
                       }}
                     </span>
                   </div>
-                  <div class="right">
-                    <q-icon @click.native="play(song, index)"
-                      :name="playingIndex === index ? 'pause circle outline' : 'play circle outline'"
-                      size="24px" />
-                    <q-btn icon="more vert" flat></q-btn>
+                  <div class="right flex justify-center">
+                    <q-btn icon="more vert" flat size="18px"
+                      text-color="grey-6"></q-btn>
                   </div>
                 </li>
               </ul>
@@ -231,6 +230,7 @@
         </q-tab-pane>
       </q-tabs>
     </div>
+    <player></player>
   </q-page>
 </template>
 
@@ -243,6 +243,9 @@ import * as R from 'ramda'
 import Rx from 'rxjs/Rx'
 import { date } from 'quasar'
 import { Howl, Howler } from 'howler'
+import Player from './player'
+import { mapState } from 'vuex'
+import store from 'src/store'
 
 const MAX_SONG_SUGGESTION_COUNT = 6
 const MAX_ARTIST_SUGGESTION_COUNT = 2
@@ -253,13 +256,16 @@ const ALBUMS_PER_PAGE = 8
 const TriggerHieght = 200 // 触发下一页的高度
 export default {
   name: 'PageIndex',
+  components: {
+    Player
+  },
   data() {
     return {
       searchSuggestInputTxt: '',
       suggestionItemsloading: false,
       songsInfinityScrollLoading: false,
       albumsInfinityScrollLoading: false,
-      selectedTab: 'songs',
+      selectedTab: 'song',
       playingIndex: -1,
       date
     }
@@ -284,7 +290,7 @@ export default {
         })
         .debounceTime(400)
         .pluck('newValue')
-        .filter(R.complement(R.equals('')))
+        .filter(txt => txt !== '' && txt !== undefined)
         .distinctUntilChanged()
         .switchMap(txt =>
           Rx.Observable.zip(
@@ -374,8 +380,8 @@ export default {
       .publishBehavior()
       .refCount()
     // .subscribe()
-    // 输入框回车、单击选中的文本流
-    const txtAfterSearch$ = new Rx.Subject()
+    // 输入框回车、单击选中的事件流
+    const txtTriggerAfterSearch$ = new Rx.Subject()
       .merge(
         this.sItemClick$.pluck('data', 'label'),
         this.inputKeyup$
@@ -385,10 +391,11 @@ export default {
       .do(txt => {
         this.searchSuggestInputTxt = txt
       })
-      .takeWhile(R.compose(R.complement, R.isNil))
-      .share()
+      .publishBehavior()
+      .refCount()
     // 搜索产生的songs$(仅一页)
-    const songItemsAfterSearch$ = txtAfterSearch$
+    const songItemsAfterSearch$ = txtTriggerAfterSearch$
+      .filter(R.complement(R.isNil))
       .switchMap(txt =>
         Rx.Observable.fromPromise(
           this.$musicAPI.get(
@@ -453,10 +460,42 @@ export default {
     ).do(e => {
       console.log('noMoreSongItems$', e)
     })
+    // 切换tab
+    const $selectedTab = Rx.Observable.combineLatest(
+      this.$watchAsObservable('selectedTab'),
+      txtTriggerAfterSearch$.bufferCount(2, 1)
+    )
+      .filter(
+        ([{ newValue: newTab, oldValue: oldTab }, [oldTxt, newTxt]]) =>
+          oldTxt === undefined
+      )
+      .do(e => {
+        console.log('这里手动触发下输入框的回车事件！！', e)
+        // 这里手动触发下输入框的回车事件！！
+        this.inputKeyup$.next({
+          event: {
+            msg: {
+              keyCode: 13
+            }
+          }
+        })
+      })
+      .share()
+      .subscribe()
     // 搜索产生的albums$(仅一页)
-    const albumItemsAfterSearch$ = txtAfterSearch$
-      .filter(() => this.selectedTab === 'album')
-      .delay(1)
+    const albumItemsAfterSearch$ = txtTriggerAfterSearch$
+      // .buffer($selectedTab.filter(R.equals('album')))
+      .filter(() => {
+        // 当是第一次点击专辑时 dom容器还未创建！ 过滤掉这次操作
+        if (
+          this.selectedTab === 'song' &&
+          !document.querySelector('.my_scroll_area.albums_area')
+        ) {
+          return false
+        }
+        return true
+      })
+      // .delay(1)
       .switchMap(txt =>
         Rx.Observable.fromPromise(
           this.$musicAPI.get(
@@ -530,14 +569,7 @@ export default {
     ).do(e => {
       console.log('noMoreSongItems$', e)
     })
-    // 切换tab
-    this.$watchAsObservable('selectedTab')
-      .pluck('newValue')
-      .filter(R.complement(R.equals('song')))
-      .do(e => {
-        console.log("$watchAsObservable('selectedTab')", e)
-      })
-      .subscribe()
+
     return {
       suggestionItems$,
       showSuggestions$,
@@ -548,6 +580,12 @@ export default {
       albumItems$,
       noMoreAlbumItems$
     }
+  },
+  computed: {
+    ...mapState('player', {
+      isPlaying: 'isPlaying',
+      playingSong: 'playingSong'
+    })
   },
   created() {},
   methods: {
@@ -583,25 +621,21 @@ export default {
       return R.concat(artistSuggestions, songSuggestions)
     },
     async play(song, index) {
+      // 获取mp3 url
       const { data: { data: [{ url }] } } = await this.$musicAPI.get(
         `/music/url?id=${song.id}`
       )
-
-      if (this.playingIndex === index) {
-        // 还是点的这首歌
-        console.log(this.sound.playing())
-      } else {
-        // 换歌了
-        if (this.sound) {
-          this.sound.fade() // 停止上首歌
-        }
-        this.sound = new Howl({
+      // 单曲详情
+      const { data: { songs: [firstSong] } } = await this.$musicAPI.get(
+        `/song/detail?ids=${song.id}`
+      )
+      store.commit('player/changeSong', {
+        song: firstSong,
+        sound: new Howl({
           src: [url],
           html5: true
-          // xhrWithCredentials: true
         })
-        this.sound.play()
-      }
+      })
     }
   }
 }

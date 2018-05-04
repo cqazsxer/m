@@ -50,6 +50,7 @@ module.exports = {
     'linebreak-style': 0,
     'prefer-template': 0,
     'max-len': 0,
+    'no-mixed-operators': 0,
     // allow debugger during development
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0
   }

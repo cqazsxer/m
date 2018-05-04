@@ -74,7 +74,8 @@ module.exports = function (ctx) {
         'QSpinnerPuff',
         'QScrollArea',
         'QInfiniteScroll',
-        'QSpinnerDots'
+        'QSpinnerDots',
+        'QProgress'
 
       ],
       directives: [
