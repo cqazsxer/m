@@ -75,15 +75,18 @@ module.exports = function (ctx) {
         'QScrollArea',
         'QInfiniteScroll',
         'QSpinnerDots',
-        'QProgress'
+        'QProgress',
+        'QModal'
 
       ],
       directives: [
-        'Ripple'
+        'Ripple',
+        'CloseOverlay'
       ],
       // Quasar plugins
       plugins: [
-        'Notify'
+        'Notify',
+        'ActionSheet'
       ]
     },
     // animations: 'all' --- includes all animations

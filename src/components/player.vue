@@ -1,4 +1,6 @@
 <style lang="stylus" scoped>
+@import '~variables';
+
 .player {
   height: 70px;
 
@@ -18,13 +20,63 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         overflow: hidden;
-        max-width: calc(100vw - 140px);
+        max-width: calc(100vw - 200px);
       }
     }
   }
 
   .right {
-    width: 60px;
+    width: 120px;
+
+    i {
+      display: inline-block;
+      width: 48px;
+    }
+  }
+}
+
+.play_list_modal {
+  .header {
+    border-bottom: 1px solid $grey-8;
+  }
+
+  ul {
+    li {
+      border-bottom: 1px solid $grey-6;
+
+      &.selectedSong {
+        .song_name, .song_ar {
+          color: $positive !important;
+        }
+
+        border-bottom-color: $positive;
+      }
+
+      .al_pic {
+        height: 40px;
+
+        img {
+          height: 40px;
+          width: 40px;
+        }
+      }
+
+      .right {
+        flex: 1 1 auto;
+
+        .song_info {
+          .song_name {
+            font-size: 16px;
+            max-width: calc(100vw - 120px);
+          }
+
+          .song_ar {
+            font-size: 14px;
+            max-width: calc(100vw - 120px);
+          }
+        }
+      }
+    }
   }
 }
 </style>
@@ -32,7 +84,8 @@
   <div class="player row items-center justify-center">
     <!-- <span>{{ playingSound && playingSound.seek() }}</span>
     <span>{{ playingSound && playingSound.duration() }}</span> -->
-    <q-progress :percentage="$seek || 0" />
+    <q-progress @click.native="handleClickProgress"
+      :percentage="$seekPercent || 0" />
     <div class="left row">
       <div class="pic q-mx-sm">
         <img :src="playingSong && playingSong.al.picUrl
@@ -50,23 +103,53 @@
       </div>
     </div>
     <div class="right row">
-      <q-icon @click.native="playOrPause" :name="isPlaying ? 'pause arrow' : 'play arrow'"
-        size="48px" class="" />
+      <q-icon class="q-mr-sm" @click.native="playOrPause"
+        :name="isPlaying ? 'pause arrow' : 'play arrow'"
+        size="48px" />
+      <q-icon @click.native="togglePlayList" name="queue music"
+        size="48px" />
     </div>
-
+    <q-modal v-model="showPlayList" position="bottom"
+      class="play_list_modal" :content-css="{paddingBottom: '20px'}">
+      <div class="header row q-pa-sm">
+        <div class="playType row items-center">
+          <q-icon class="q-mr-sm" @click.native="changePlayType"
+            name="repeat" size="35px" />
+          <span>顺序播放({{ playList.length }}首)</span>
+        </div>
+      </div>
+      <div class="no_play q-pa-md" v-if="playList.length === 0">
+        队列为空！
+      </div>
+      <ul>
+        <li v-for="(play, index) in playList" :key="index"
+          @click="handleClickPlayList" :class="['row', { 'selectedSong': play.song.id === playingSong.id }, 'q-py-xs', 'items-center']">
+          <div class="al_pic"><img :src="play.song.al.picUrl"
+              alt=""></div>
+          <div class="right">
+            <div class="song_info column justify-center q-ml-sm">
+              <span class="song_name ellipsis">{{ play.song.name }}</span>
+              <span class="song_ar text-grey-6 ellipsis">{{ play.song.ar[0].name }}</span>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </q-modal>
   </div>
+
 </template>
 
 <script>
 import { openURL } from 'quasar'
 import { mapState } from 'vuex'
 import store from 'src/store'
+import Rx from 'rxjs/Rx'
 
 export default {
   name: 'player',
   data() {
     return {
-      leftDrawerOpen: this.$q.platform.is.desktop
+      showPlayList: false
     }
   },
   computed: {
@@ -74,13 +157,32 @@ export default {
       isPlaying: 'isPlaying',
       playingSong: 'playingSong',
       playingSound: 'playingSound',
-      $seek: '$seek'
+      playList: 'playList'
     })
   },
+  subscriptions() {
+    return {
+      $seekPercent: Rx.Observable.interval(1000).map(() => {
+        if (!this.playingSound) {
+          return 0
+        }
+        return this.playingSound.seek() * 100 / this.playingSound.duration()
+      })
+    }
+  },
+  created() {},
   methods: {
     openURL,
     playOrPause() {
       store.commit('player/changePlayState', !this.isPlaying)
+    },
+    togglePlayList() {
+      this.showPlayList = !this.showPlayList
+    },
+    changePlayType() {},
+    handleClickPlayList() {},
+    handleClickProgress({ offsetX }) {
+      store.commit('player/setSeek', offsetX / document.body.clientWidth)
     }
   }
 }

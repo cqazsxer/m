@@ -17,6 +17,10 @@
 
 .songs {
   .song {
+    &.selectedSong {
+      border-left 4px solid $green-4;
+    }
+    transition: all 0.3s;
     line-height: 20px;
     border-bottom: 1px solid $light;
 
@@ -158,8 +162,8 @@
           <div class="my_scroll_area songs_area" v-stream:scroll.native="songsScroll$">
             <div class="my_scroll_area_body songs_body">
               <ul class="column songs">
-                <li v-for="(song, index) of songItems$" :key="index"
-                  :class="[{ 'selectedSong': true }, 'row', 'song']"
+                <li v-for="(song, index) of songItems$" :key="index" :id="song.id"
+                  :class="[{'selectedSong': playingSong.id === song.id}, 'row', 'song']"
                   @click.stop="play(song, index)">
                   <div class="column left justify-center q-pa-sm">
                     <span class="song_name ellipsis">{{ song.name }}</span>
@@ -588,6 +592,9 @@ export default {
     })
   },
   created() {},
+  mounted() {
+    this.$store.dispatch('player/initSongs')
+  },
   methods: {
     handleSuggestionsData([ArtistSuggestionsData, songsSuggestionsData]) {
       const { songs } = songsSuggestionsData.data.result
@@ -620,22 +627,9 @@ export default {
       )(songs)
       return R.concat(artistSuggestions, songSuggestions)
     },
-    async play(song, index) {
-      // 获取mp3 url
-      const { data: { data: [{ url }] } } = await this.$musicAPI.get(
-        `/music/url?id=${song.id}`
-      )
-      // 单曲详情
-      const { data: { songs: [firstSong] } } = await this.$musicAPI.get(
-        `/song/detail?ids=${song.id}`
-      )
-      store.commit('player/changeSong', {
-        song: firstSong,
-        sound: new Howl({
-          src: [url],
-          html5: true
-        })
-      })
+    // 点击play
+    play(song, index) {
+      store.dispatch('player/changeSong', song.id)
     }
   }
 }

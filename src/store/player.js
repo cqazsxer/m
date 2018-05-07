@@ -1,78 +1,18 @@
-const defaultSong = {
-  name: '海阔天空',
-  id: 347230,
-  pst: 0,
-  t: 0,
-  ar: [
-    {
-      id: 11127,
-      name: 'Beyond',
-      tns: [],
-      alias: []
-    }
-  ],
-  alia: [],
-  pop: 100,
-  st: 0,
-  rt: '600902000004240302',
-  fee: 8,
-  v: 31,
-  crbt: null,
-  cf: '',
-  al: {
-    id: 34209,
-    name: '海阔天空',
-    picUrl:
-      'http://p1.music.126.net/QHw-RuMwfQkmgtiyRpGs0Q==/102254581395219.jpg',
-    tns: [],
-    pic: 102254581395219
-  },
-  dt: 326348,
-  h: {
-    br: 320000,
-    fid: 0,
-    size: 13070578,
-    vd: 0.109906
-  },
-  m: {
-    br: 160000,
-    fid: 0,
-    size: 6549371,
-    vd: 0.272218
-  },
-  l: {
-    br: 96000,
-    fid: 0,
-    size: 3940469,
-    vd: 0.228837
-  },
-  a: null,
-  cd: '1',
-  no: 1,
-  rtUrl: null,
-  ftype: 0,
-  rtUrls: [],
-  djId: 0,
-  copyright: 1,
-  s_id: 0,
-  mv: 376199,
-  rtype: 0,
-  rurl: null,
-  mst: 9,
-  cp: 7002,
-  publishTime: 746812800000
-}
 import { Howl, Howler } from 'howler'
 import Rx from 'rxjs/Rx'
+import { musicAPI } from '../utils'
+import * as R from 'ramda'
 
 export default {
   namespaced: true,
   state: {
     isPlaying: false,
     playingSound: null, // 当前播放的Howl
+    playingSong: null, // 当前歌曲信息
+    playIndex: -1, // 当前播的数组哪个？
     $seek: null,
-    playingSong: defaultSong,
-    playList: []
+    // showPlayList: false,
+    playList: [] // 默认播放列表
   },
   mutations: {
     changePlayState(state, boolean) {
@@ -83,27 +23,132 @@ export default {
         state.playingSound.pause()
       }
     },
-    changeSong(state, { song, sound }) {
-      console.log('song, sound', song, sound)
+    setSeek(state, newPer) {
+      console.log(state, newPer);
+      state.playingSound.seek(newPer * state.playingSound.duration());
+    },
+    setSong(state) {
+      // 当前有sound就停止
       if (state.playingSound) {
         state.playingSound.stop()
       }
-      state.playingSong = song
-      state.playingSound = sound
-      state.$seek = Rx.Observable.interval(1000)
-        .map(
-          () => state.playingSound.seek() * 100 / state.playingSound.duration()
-        )
-        .do(e => {
-          console.log(e)
-        })
-        .subscribe()
-
+      // song、sound重新赋值
+      state.playingSong = state.playList[state.playIndex].song
+      state.playingSound = state.playList[state.playIndex].sound
+    },
+    play(state) {
       state.playingSound.play()
       state.isPlaying = true
+    },
+    pause(state) {
+      state.playingSound.pause()
+      state.isPlaying = false
+    },
+    stop(state) {
+      state.playingSound.stop()
+      state.isPlaying = false
+    },
+
+    addToPlayList(state, { song, sound }) {
+      const index = R.findIndex(item => item.song.id === state.playingSong.id)(
+        state.playList
+      )
+      // 以存在播放列表 就更新到数组底部
+      if (index !== -1) {
+        state.playList.splice(index, 1)
+        state.playIndex = index
+      }
+      state.playIndex = state.playList.push({ song, sound }) - 1
     }
   },
   actions: {
-    getList({ commit }) {}
+    getList({ commit }) {},
+    async changeSong({ commit, dispatch, state }, id) {
+      if (id === (state.playingSong && state.playingSong.id)) {
+        if (state.isPlaying) {
+          commit('pause')
+        } else {
+          commit('play')
+        }
+      } else {
+        const { song, sound } = await dispatch('getSongMp3AndSound', id)
+        commit('addToPlayList', { song, sound })
+        commit('setSong')
+        commit('play')
+      }
+    },
+    playNext({ commit, state }) {
+      commit('stop')
+      const newIndex =
+        state.playIndex + 1 > state.playList.length - 1
+          ? 0
+          : state.playIndex + 1
+      state.commit('setSong', state.playList[newIndex])
+      commit('play')
+    },
+    playPrev({ commit, state }) {
+      commit('stop')
+      const newIndex =
+        state.playIndex - 1 < 0
+          ? state.playList.length - 1
+          : state.playIndex - 1
+      state.commit('setSong', state.playList[newIndex])
+      commit('play')
+    },
+    // 初始列表
+    async initSongs({ commit, state }) {
+      try {
+        const ids = 347230
+        const {
+          data: {
+            data: [{ url }]
+          }
+        } = await musicAPI.get(`/music/url?id=${ids}`)
+        // 单曲详情
+        const {
+          data: {
+            songs: [firstSong]
+          }
+        } = await musicAPI.get(`/song/detail?ids=${ids}`)
+        state.playingSong = firstSong
+        state.playingSound = new Howl({
+          src: [url],
+          html5: true
+        })
+        // commit('changeSong', {
+        //   song: firstSong,
+        //   sound: new Howl({
+        //     src: [url],
+        //     html5: true
+        //   })
+        // })
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    // 根据歌曲id 获得歌曲详情、歌曲url
+    async getSongMp3AndSound({ commit, dispatch }, id) {
+      const {
+        data: {
+          data: [{ url }]
+        }
+      } = await musicAPI.get(`/music/url?id=${id}`)
+      // 单曲详情
+      const {
+        data: {
+          songs: [song]
+        }
+      } = await musicAPI.get(`/song/detail?ids=${id}`)
+      return {
+        song,
+        sound: new Howl({
+          src: [url],
+          html5: true,
+          onend() {
+            dispatch('playNext')
+          }
+        })
+      }
+    }
   }
 }
