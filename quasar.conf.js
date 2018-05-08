@@ -86,7 +86,8 @@ module.exports = function (ctx) {
       // Quasar plugins
       plugins: [
         'Notify',
-        'ActionSheet'
+        'ActionSheet',
+        'LocalStorage'
       ]
     },
     // animations: 'all' --- includes all animations

@@ -2,6 +2,7 @@ import { Howl, Howler } from 'howler'
 import Rx from 'rxjs/Rx'
 import { musicAPI } from '../utils'
 import * as R from 'ramda'
+import { LocalStorage, SessionStorage } from 'quasar'
 
 export default {
   namespaced: true,
@@ -24,10 +25,10 @@ export default {
       }
     },
     setSeek(state, newPer) {
-      console.log(state, newPer);
-      state.playingSound.seek(newPer * state.playingSound.duration());
+      console.log(state, newPer)
+      state.playingSound.seek(newPer * state.playingSound.duration())
     },
-    setSong(state) {
+    setSong(state, newIndex) {
       // 当前有sound就停止
       if (state.playingSound) {
         state.playingSound.stop()
@@ -50,15 +51,22 @@ export default {
     },
 
     addToPlayList(state, { song, sound }) {
-      const index = R.findIndex(item => item.song.id === state.playingSong.id)(
+      const index = R.findIndex(item => item.song.id === song.id)(
         state.playList
       )
-      // 以存在播放列表 就更新到数组底部
-      if (index !== -1) {
-        state.playList.splice(index, 1)
+      if (index === -1) {
+        state.playIndex = state.playList.push({ song, sound }) - 1
+        LocalStorage.set(
+          'songidsOfPlayList',
+          state.playList.map(({ song: { id } }) => id)
+        )
+      } else {
         state.playIndex = index
       }
-      state.playIndex = state.playList.push({ song, sound }) - 1
+    },
+    initPlayList(state, playList) {
+      state.playList = playList
+      state.playIndex = 0;
     }
   },
   actions: {
@@ -79,51 +87,50 @@ export default {
     },
     playNext({ commit, state }) {
       commit('stop')
-      const newIndex =
+      state.playIndex =
         state.playIndex + 1 > state.playList.length - 1
           ? 0
           : state.playIndex + 1
-      state.commit('setSong', state.playList[newIndex])
+
+      commit('setSong')
       commit('play')
     },
     playPrev({ commit, state }) {
       commit('stop')
-      const newIndex =
+      state.playIndex =
         state.playIndex - 1 < 0
           ? state.playList.length - 1
           : state.playIndex - 1
-      state.commit('setSong', state.playList[newIndex])
+      state.commit('setSong')
       commit('play')
     },
     // 初始列表
-    async initSongs({ commit, state }) {
+    async init({ commit, state }) {
+      const idsArr = LocalStorage.get.item('songidsOfPlayList')
+      const ids = idsArr.join(',')
       try {
-        const ids = 347230
         const {
-          data: {
-            data: [{ url }]
-          }
+          data: { data: mp3sData }
         } = await musicAPI.get(`/music/url?id=${ids}`)
-        // 单曲详情
-        const {
-          data: {
-            songs: [firstSong]
-          }
-        } = await musicAPI.get(`/song/detail?ids=${ids}`)
-        state.playingSong = firstSong
-        state.playingSound = new Howl({
-          src: [url],
-          html5: true
-        })
-        // commit('changeSong', {
-        //   song: firstSong,
-        //   sound: new Howl({
-        //     src: [url],
-        //     html5: true
-        //   })
-        // })
+
+        const songsData = await Promise.all(
+          idsArr.map(id => musicAPI.get(`/song/detail?ids=${id}`))
+        )
+        const mp3s = R.sortBy(R.prop('id'))(mp3sData)
+        const songs = R.compose(R.sortBy(R.prop('id')), R.map(songsd => songsd.data.songs[0]))(songsData)
+        console.log('songs, mp3s', songs, mp3s);
+        const playList = R.map(([song, mp3]) => ({
+          song,
+          sound: new Howl({
+            src: [mp3.url],
+            html5: true
+          })
+        }))(R.zip(songs, mp3s))
+
+        commit('initPlayList', playList)
+        commit('setSong')
       } catch (error) {
-        console.error(error)
+        console.error('初始化列表', error)
       }
     },
     // 根据歌曲id 获得歌曲详情、歌曲url

@@ -27,6 +27,7 @@
 
   .right {
     width: 120px;
+    overflow: hidden;
 
     i {
       display: inline-block;
@@ -40,16 +41,21 @@
     border-bottom: 1px solid $grey-8;
   }
 
+  .my_scroll_area {
+    max-height: 40vh;
+    overflow: auto;
+    position: relative;
+  }
+
   ul {
     li {
-      border-bottom: 1px solid $grey-6;
+      border-bottom: 1px solid $grey-5;
+      padding: 6px 0;
 
       &.selectedSong {
         .song_name, .song_ar {
           color: $positive !important;
         }
-
-        border-bottom-color: $positive;
       }
 
       .al_pic {
@@ -110,7 +116,7 @@
         size="48px" />
     </div>
     <q-modal v-model="showPlayList" position="bottom"
-      class="play_list_modal" :content-css="{paddingBottom: '20px'}">
+      class="play_list_modal" :content-css="{}">
       <div class="header row q-pa-sm">
         <div class="playType row items-center">
           <q-icon class="q-mr-sm" @click.native="changePlayType"
@@ -121,19 +127,23 @@
       <div class="no_play q-pa-md" v-if="playList.length === 0">
         队列为空！
       </div>
-      <ul>
-        <li v-for="(play, index) in playList" :key="index"
-          @click="handleClickPlayList" :class="['row', { 'selectedSong': play.song.id === playingSong.id }, 'q-py-xs', 'items-center']">
-          <div class="al_pic"><img :src="play.song.al.picUrl"
-              alt=""></div>
-          <div class="right">
-            <div class="song_info column justify-center q-ml-sm">
-              <span class="song_name ellipsis">{{ play.song.name }}</span>
-              <span class="song_ar text-grey-6 ellipsis">{{ play.song.ar[0].name }}</span>
+      <div class="my_scroll_area">
+        <ul>
+          <li v-for="(play, index) in playList" :key="index"
+            @click="handleClickPlayList(play)"
+            :class="['row', { 'selectedSong': play.song.id === playingSong.id }, 'items-center']">
+            <div class="al_pic"><img :src="play.song.al.picUrl"
+                alt=""></div>
+            <div class="right">
+              <div class="song_info column justify-center q-ml-sm">
+                <span class="song_name ellipsis">{{ play.song.name }}</span>
+                <span class="song_ar text-grey-6 ellipsis">{{ play.song.ar[0].name }}</span>
+              </div>
             </div>
-          </div>
-        </li>
-      </ul>
+          </li>
+        </ul>
+      </div>
+
     </q-modal>
   </div>
 
@@ -162,7 +172,7 @@ export default {
   },
   subscriptions() {
     return {
-      $seekPercent: Rx.Observable.interval(1000).map(() => {
+      $seekPercent: Rx.Observable.interval(500).map(() => {
         if (!this.playingSound) {
           return 0
         }
@@ -180,7 +190,9 @@ export default {
       this.showPlayList = !this.showPlayList
     },
     changePlayType() {},
-    handleClickPlayList() {},
+    handleClickPlayList({ song }) {
+      store.dispatch('player/changeSong', song.id)
+    },
     handleClickProgress({ offsetX }) {
       store.commit('player/setSeek', offsetX / document.body.clientWidth)
     }

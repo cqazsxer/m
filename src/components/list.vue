@@ -593,7 +593,7 @@ export default {
   },
   created() {},
   mounted() {
-    this.$store.dispatch('player/initSongs')
+    this.$store.dispatch('player/init')
   },
   methods: {
     handleSuggestionsData([ArtistSuggestionsData, songsSuggestionsData]) {
