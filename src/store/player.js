@@ -106,7 +106,8 @@ export default {
     },
     // 初始列表
     async init({ commit, state }) {
-      const idsArr = LocalStorage.get.item('songidsOfPlayList')
+      const idsArr = LocalStorage.get.item('songidsOfPlayList') || [28561288, 521749251, 306664, 306654];
+      console.log(idsArr);
       const ids = idsArr.join(',')
       try {
         const {
